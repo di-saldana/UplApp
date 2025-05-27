@@ -5,11 +5,12 @@
  * @format
  */
 
-import React, { useState } from 'react';
-import { ScrollView, StatusBar, StyleSheet, Text, useColorScheme, View, Button, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { ScrollView, StatusBar, StyleSheet, Text, useColorScheme, View, Button, Image, Linking } from 'react-native';
 import { Colors } from 'react-native/Libraries/NewAppScreen';
 import { launchImageLibrary } from 'react-native-image-picker';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
+import { SpotifyService } from './SpotifyService';
 
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
@@ -19,6 +20,41 @@ function App(): React.JSX.Element {
 
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [recognizedText, setRecognizedText] = useState<string>('');
+
+  useEffect(() => {
+    const handleDeepLink = (event: { url: string }) => {
+      const url = event.url;
+      console.log('Redirected back with URL:', url);
+      // Extract access token or code and handle auth flow here
+      SpotifyService.handleAuthRedirect(url); 
+    };
+
+    Linking.addEventListener('url', handleDeepLink);
+
+    // Also handle case when app is opened via cold start with a deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
+
+    return () => {
+      Linking.removeAllListeners('url');
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleSpotifyLogin = async () => {
+      try {
+        const authUrl = await SpotifyService.requestAuthorization();
+        if (authUrl) {
+          Linking.openURL(authUrl);
+        }
+      } catch (error) {
+        console.error('Error requesting Spotify authorization:', error);
+      }
+    };
+
+    handleSpotifyLogin();
+  }, []);
 
   const handleGalleryOpen = () =>  {
     const options = {
@@ -42,6 +78,9 @@ function App(): React.JSX.Element {
           const resultText = await TextRecognition.recognize(imageUri);
           setRecognizedText(resultText.text);
           console.log(resultText.text);
+
+          await SpotifyService.addSongToUplPlaylist('spotify:track:4uLU6hMCjMI75M1A2tKUQC'); // Example track URI
+          await SpotifyService.addSongToUplPlaylist(resultText.text); 
       }   
       }
     });

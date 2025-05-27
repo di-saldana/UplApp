@@ -10,10 +10,15 @@
     "test": "jest"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native-ml-kit/text-recognition": "^1.5.2",
+    "base-64": "^1.0.0",
     "react": "19.0.0",
     "react-native": "0.79.2",
-    "react-native-image-picker": "^8.2.1"
+    "react-native-app-auth": "^8.0.2",
+    "react-native-image-picker": "^8.2.1",
+    "react-native-keychain": "^10.0.0",
+    "utf8": "^3.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
