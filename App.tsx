@@ -56,39 +56,52 @@ function App(): React.JSX.Element {
     handleSpotifyLogin();
   }, []);
 
-  const handleGalleryOpen = () =>  {
+  const handleGalleryOpen = async () => {
     const options = {
       mediaType: 'photo' as const,
       includeBase64: false,
       maxHeight: 2000,
       maxWidth: 2000,
+      selectionLimit: 0, // Allow multiple selection
     };
 
     launchImageLibrary(options, async (response) => {
       if (response.didCancel) {
         console.log('User cancelled image picker');
-      } else if (response.errorCode) {
-        console.log('Image picker error: ', response.errorCode);
-      } else {
-        let imageUri = response.assets?.[0]?.uri;
+        return;
+      }
+
+      if (response.errorCode) {
+        console.error('Image picker error: ', response.errorCode);
+        return;
+      }
+
+      const assets = response.assets;
+      if (!assets || assets.length === 0) {
+        console.warn('No images selected');
+        return;
+      }
+
+      for (const asset of assets) {
+        const imageUri = asset.uri;
 
         if (imageUri) {
-          setImageUri(imageUri);
-          
-          const resultText = await TextRecognition.recognize(imageUri);
-          setRecognizedText(resultText.text);
-          console.log(resultText.text);
+          try {
+            const resultText = await TextRecognition.recognize(imageUri);
+            console.log('Recognized text:', resultText.text);
 
-          const query = resultText.text;
-          const trackUri = await SpotifyService.searchTrack(query);
+            const trackUri = await SpotifyService.searchTrack(resultText.text);
 
-          if (trackUri) {
-            await SpotifyService.addSongToUplPlaylist(trackUri);
-            console.log("Song Added: ", query);
-          } else {
-            console.warn("No matching track found for:", query);
+            if (trackUri) {
+              await SpotifyService.addSongToUplPlaylist(trackUri);
+              console.log('✅ Song added from:', resultText.text);
+            } else {
+              console.warn('❌ No matching track found for:', resultText.text);
+            }
+          } catch (error) {
+            console.error('Error processing image:', imageUri, error);
           }
-        }   
+        }
       }
     });
   };
