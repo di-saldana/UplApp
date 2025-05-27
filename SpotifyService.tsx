@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CLIENT_ID = 'd2a4f6ca1a5641afb4d9a0d9fd3e522f';
 const CLIENT_SECRET = '47c467188a564a41a80b798eb9205522';
-const REDIRECT_URI = 'upl://callback'; //'upl://callback';
+const REDIRECT_URI = 'upl://callback'; 
 
 const AUTHORIZE_URL = 'https://accounts.spotify.com/authorize';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
@@ -34,7 +34,7 @@ export const SpotifyService = {
     return authUrl; // open in WebView or browser
   },
 
-  async handleAuthRedirect1(url: string) {
+  async handleAuthRedirect(url: string) {
     const parsed = new URL(url);
     const code = parsed.searchParams.get('code');
     const error = parsed.searchParams.get('error');
@@ -73,33 +73,7 @@ export const SpotifyService = {
     }
   },
 
-  async handleAuthRedirect(redirectUrl: string): Promise<void> {
-    console.log("[handleAuthRedirect] Redirect URL:", redirectUrl);
-
-    try {
-      const code = extractQueryParam(redirectUrl, 'code');
-      const error = extractQueryParam(redirectUrl, 'error');
-
-      if (error) {
-        console.error("[handleAuthRedirect] Error during auth:", error);
-        return;
-      }
-
-      if (!code) {
-        console.warn("[handleAuthRedirect] No code found in redirect URL.");
-        return;
-      }
-
-      console.log("[handleAuthRedirect] Extracted code:", code);
-
-      // Proceed to exchange the code
-      await this.exchangeCodeForToken(code);
-    } catch (err) {
-      console.error("[handleAuthRedirect] Failed to handle redirect:", err);
-    }
-  },
-
-  async exchangeCodeForToken1(code: string) {
+  async exchangeCodeForToken(code: string) {
     ///
     if (!code) {
       console.error('[handleAuthRedirect] No code found in redirect URI');
@@ -130,14 +104,13 @@ export const SpotifyService = {
       body: body.toString()
     });
 
-
     if (!response.ok) throw new Error('Failed to exchange code');
 
     const data = await response.json();
-    // await AsyncStorage.setItem('access_token', data.access_token);
-    // await AsyncStorage.setItem('refresh_token', data.refresh_token);
-    // const expirationTime = Date.now() + data.expires_in * 1000;
-    // await AsyncStorage.setItem('token_expiration', expirationTime.toString());
+    await AsyncStorage.setItem('access_token', data.access_token);
+    await AsyncStorage.setItem('refresh_token', data.refresh_token);
+    const expirationTime = Date.now() + data.expires_in * 1000;
+    await AsyncStorage.setItem('token_expiration', expirationTime.toString());
 
     accessToken = data.access_token;
     refreshToken = data.refresh_token;
@@ -147,48 +120,6 @@ export const SpotifyService = {
     console.log('[exchangeCodeForToken] Expires at:', new Date(data.expirationTime).toISOString());
 
     return data;
-  },
-
-  async exchangeCodeForToken(code: string): Promise<void> {
-    const credentials = `${CLIENT_ID}:${CLIENT_SECRET}`;
-    const authHeader = btoa(credentials);
-
-    // const authHeader = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
-
-    const params = new URLSearchParams();
-    params.append('grant_type', 'authorization_code');
-    params.append('code', code);
-    params.append('redirect_uri', REDIRECT_URI);
-
-    try {
-      const response = await fetch(TOKEN_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${authHeader}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params.toString(),
-      });
-
-      const data = await response.json();
-      console.log("[exchangeCodeForToken] Response:", data);
-
-      if (response.ok && data.access_token) {
-        await AsyncStorage.setItem('accessToken', data.access_token);
-        await AsyncStorage.setItem('refreshToken', data.refresh_token);
-        await AsyncStorage.setItem('expirationTime', (Date.now() + data.expires_in * 1000).toString());
-
-        // await SecureStore.setItemAsync('access_token', data.access_token);
-        // await SecureStore.setItemAsync('refresh_token', data.refresh_token);
-        // await SecureStore.setItemAsync('token_expiration', (Date.now() + data.expires_in * 1000).toString());
-
-        console.log("[exchangeCodeForToken] Token saved!");
-      } else {
-        console.error("[exchangeCodeForToken] Token request failed:", data);
-      }
-    } catch (error) {
-      console.error("[exchangeCodeForToken] Error:", error);
-    }
   },
 
   async refreshAccessToken() {
