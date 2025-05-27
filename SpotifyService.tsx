@@ -1,13 +1,12 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SpotifyStorage } from './storage/SpotifyStorage';
 
 const CLIENT_ID = 'd2a4f6ca1a5641afb4d9a0d9fd3e522f';
 const CLIENT_SECRET = '47c467188a564a41a80b798eb9205522';
-const REDIRECT_URI = 'upl://callback'; //'upl://callback';
+const REDIRECT_URI = 'upl://callback'; 
 
 const AUTHORIZE_URL = 'https://accounts.spotify.com/authorize';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const USER_PROFILE_URL = 'https://api.spotify.com/v1/me';
-
 const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 
 let accessToken: string | null = null;
@@ -85,13 +84,11 @@ export const SpotifyService = {
       console.log("[exchangeCodeForToken] Response:", data);
 
       if (response.ok && data.access_token) {
-        await AsyncStorage.setItem('accessToken', data.access_token);
-        await AsyncStorage.setItem('refreshToken', data.refresh_token);
-        await AsyncStorage.setItem('expirationTime', (Date.now() + data.expires_in * 1000).toString());
-
-        // await SecureStore.setItemAsync('access_token', data.access_token);
-        // await SecureStore.setItemAsync('refresh_token', data.refresh_token);
-        // await SecureStore.setItemAsync('token_expiration', (Date.now() + data.expires_in * 1000).toString());
+        await SpotifyStorage.setTokens({
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token,
+          expirationTime: Date.now() + data.expires_in * 1000,
+        });
 
         console.log("[exchangeCodeForToken] Token saved!");
       } else {
@@ -104,8 +101,7 @@ export const SpotifyService = {
 
   async refreshAccessToken() {
     const credentials = btoa(`${CLIENT_ID}:${CLIENT_SECRET}`);
-    refreshToken = refreshToken || (await AsyncStorage.getItem('refresh_token'));
-    // let refreshToken = await SecureStore.getItemAsync('refresh_token');
+    refreshToken = (refreshToken || (await SpotifyStorage.getRefreshToken())) ?? null;
 
     if (!refreshToken) {
       throw new Error('Missing refresh token');
@@ -131,28 +127,29 @@ export const SpotifyService = {
     accessToken = data.access_token;
     console.log(accessToken);
 
-    await AsyncStorage.setItem('access_token', accessToken || "");
+    await SpotifyStorage.setTokens({
+      accessToken: accessToken || '',
+      refreshToken: refreshToken || '',
+      expirationTime: Date.now() + data.expires_in * 1000,
+    });
 
     if (data.refresh_token) {
       refreshToken = data.refresh_token;
       console.log(refreshToken);
 
-      await AsyncStorage.setItem('refresh_token', refreshToken || "");
+      // await AsyncStorage.setItem('refresh_token', refreshToken || "");
     }
 
     const expirationTime = Date.now() + data.expires_in * 1000;
-    await AsyncStorage.setItem('token_expiration', expirationTime.toString());
+    // await AsyncStorage.setItem('token_expiration', expirationTime.toString());
 
     return data;
   },
 
   async ensureTokenValid(): Promise<void> {
-    const expiration = await AsyncStorage.getItem('token_expiration');
-    const token = await AsyncStorage.getItem('access_token');
-    const refresh = await AsyncStorage.getItem('refresh_token');
-    // const expiration = await SecureStore.getItemAsync('token_expiration');
-    // const token = await SecureStore.getItemAsync('access_token');
-    // const refresh = await SecureStore.getItemAsync('refresh_token');
+    const expiration = await SpotifyStorage.getExpirationTime();
+    const token = await SpotifyStorage.getAccessToken();
+    const refresh = await SpotifyStorage.getRefreshToken();
 
     const now = Date.now();
 
@@ -160,7 +157,7 @@ export const SpotifyService = {
     console.log('[ensureTokenValid] Stored refresh token:', refresh);
     console.log('[ensureTokenValid] Token expiration time:', expiration);
 
-    if (!expiration || now > parseInt(expiration)) {
+    if (!expiration || now > expiration) {
       console.log('Access token expired, refreshing...');
       await SpotifyService.refreshAccessToken();
     } else {
@@ -173,8 +170,7 @@ export const SpotifyService = {
 
     await this.ensureTokenValid();
 
-    const token = await AsyncStorage.getItem('access_token');
-    // const token = await SecureStore.getItemAsync('access_token');
+    const token = await SpotifyStorage.getAccessToken();
     console.log('[addSongToUplPlaylist] Retrieved access token:', token);
 
     if (!token) {
@@ -252,8 +248,7 @@ export const SpotifyService = {
   // EXTRA
   async getProfile(): Promise<any> {
     await SpotifyService.ensureTokenValid();
-    const token = await AsyncStorage.getItem('access_token');
-    // const token = await SecureStore.getItemAsync('access_token');
+    const token = await SpotifyStorage.getAccessToken();
     if (!token) throw new Error('Access token not found');
 
     const response = await fetch(USER_PROFILE_URL, {
@@ -277,8 +272,7 @@ export const SpotifyService = {
 
   async getTopArtists(limit: number = 4) {
     await SpotifyService.ensureTokenValid();
-    const token = await AsyncStorage.getItem('access_token');
-    // const token = await SecureStore.getItemAsync('access_token');
+    const token = await SpotifyStorage.getAccessToken();
     const response = await fetch(`https://api.spotify.com/v1/me/top/artists?limit=${limit}`, {
       headers: {
         Authorization: `Bearer ${token}`
@@ -293,8 +287,7 @@ export const SpotifyService = {
 
   async getTopTracks(limit: number = 10) {
     await SpotifyService.ensureTokenValid();
-    const token = await AsyncStorage.getItem('access_token');
-    // const token = await SecureStore.getItemAsync('access_token');
+    const token = await SpotifyStorage.getAccessToken();
     const response = await fetch(`https://api.spotify.com/v1/me/top/tracks?limit=${limit}`, {
       headers: {
         Authorization: `Bearer ${token}`
