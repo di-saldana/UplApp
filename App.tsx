@@ -79,9 +79,16 @@ function App(): React.JSX.Element {
           setRecognizedText(resultText.text);
           console.log(resultText.text);
 
-          await SpotifyService.addSongToUplPlaylist('spotify:track:4uLU6hMCjMI75M1A2tKUQC'); // Example track URI
-          await SpotifyService.addSongToUplPlaylist(resultText.text); 
-      }   
+          const query = resultText.text;
+          const trackUri = await SpotifyService.searchTrack(query);
+
+          if (trackUri) {
+            await SpotifyService.addSongToUplPlaylist(trackUri);
+            console.log("Song Added: ", query);
+          } else {
+            console.warn("No matching track found for:", query);
+          }
+        }   
       }
     });
   };

@@ -22,6 +22,8 @@ export const SpotifyService = {
       'streaming',
       'user-read-recently-played',
       'playlist-read-private',
+      'playlist-modify-public',
+      'playlist-modify-private',
       'user-top-read'
     ].join(' ');
 
@@ -247,7 +249,7 @@ export const SpotifyService = {
 
   // EXTRA
   async getProfile(): Promise<any> {
-    await SpotifyService.ensureTokenValid();
+    await this.ensureTokenValid();
     const token = await SpotifyStorage.getAccessToken();
     if (!token) throw new Error('Access token not found');
 
@@ -271,7 +273,7 @@ export const SpotifyService = {
   },
 
   async getTopArtists(limit: number = 4) {
-    await SpotifyService.ensureTokenValid();
+    await this.ensureTokenValid();
     const token = await SpotifyStorage.getAccessToken();
     const response = await fetch(`https://api.spotify.com/v1/me/top/artists?limit=${limit}`, {
       headers: {
@@ -286,7 +288,7 @@ export const SpotifyService = {
   },
 
   async getTopTracks(limit: number = 10) {
-    await SpotifyService.ensureTokenValid();
+    await this.ensureTokenValid();
     const token = await SpotifyStorage.getAccessToken();
     const response = await fetch(`https://api.spotify.com/v1/me/top/tracks?limit=${limit}`, {
       headers: {
@@ -298,7 +300,32 @@ export const SpotifyService = {
 
     const data = await response.json();
     return data.items;
-  }
+  },
+
+  async searchTrack(query: string): Promise<string | null> {
+    await this.ensureTokenValid();
+    const token = await SpotifyStorage.getAccessToken(); 
+    if (!token) throw new Error('Access token not found');
+
+    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=1`;
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      console.error('[searchTrack] Failed to search track:', await response.text());
+      return null;
+    }
+
+    const data = await response.json();
+
+    const track = data.tracks.items[0];
+    console.log("Track: ", track)
+    return track?.uri ?? null;
+  },
 };
 
 function extractQueryParam(url: string, param: string): string | null {
